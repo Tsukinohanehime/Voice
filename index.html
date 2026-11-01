@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ห้องฝึกเสียง · วิเคราะห์เสียงของฉัน</title>
+<meta name="description" content="เครื่องมือฝึกเสียงส่วนตัว: ระดับเสียง, formant, สเปกโตรแกรม, แผนภูมิสระ, ประเมินด้วย AI — ทำงานในเครื่องคุณ">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2714%27 fill=%27%23e0549b%27/%3E%3Cpath d=%27M8 16h2l2-6 4 12 3-9 2 3h3%27 stroke=%27white%27 stroke-width=%272%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+<meta name="theme-color" content="#d6498f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ห้องฝึกเสียง">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>ห้องฝึกเสียง</h1>
+    <p>ดูเสียงตัวเองแบบเห็นภาพ แล้วค่อย ๆ ปรับไปทีละนิด</p>
+  </div>
+  <div class="chips">
+    <span class="chip ok" title="เสียงถูกประมวลผลในเครื่องนี้ ไม่ถูกส่งออกอินเทอร์เน็ต">🔒 เสียงอยู่ในเครื่องคุณ</span>
+    <button class="chip" id="btnInstall" hidden>⬇ ติดตั้งแอป</button>
+    <span class="chip" id="aiChip">AI: กำลังตรวจ…</span>
+  </div>
+</header>
+
+<section class="micbar card">
+  <button id="btnMic" class="btn primary">🎙 เปิดไมค์</button>
+  <button id="btnRec" class="btn rec" disabled>● เริ่มอัด</button>
+  <span id="recTime" class="rectime" aria-live="polite"></span>
+  <label class="check"><input type="checkbox" id="optAgc"> ปรับระดับเสียงอัตโนมัติ</label>
+  <p id="iosHint" class="hint" hidden>ติดตั้งบน iPhone/iPad: กดปุ่มแชร์ของ Safari แล้วเลือก “เพิ่มไปยังหน้าจอโฮม”</p>
+  <p id="micMsg" class="hint">ใส่หูฟัง หาที่เงียบ ๆ แล้วกด “เปิดไมค์” (ถ้ามีเสียงสะท้อนในห้อง ผลจะเพี้ยน)</p>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" class="tab on" data-tab="live">ฝึกสด</button>
+  <button role="tab" class="tab" data-tab="rec">วิเคราะห์เสียงที่อัด</button>
+  <button role="tab" class="tab" data-tab="text">ประโยคฝึก</button>
+  <button role="tab" class="tab" data-tab="me">บันทึกของฉัน</button>
+</nav>
+
+<!-- ========================= ฝึกสด ========================= -->
+<main id="tab-live" class="panel on">
+  <div class="grid two">
+    <section class="card">
+      <h2>ประมาณการจากเสียงสด</h2>
+      <div class="gauge" id="liveGauge">
+        <div class="gauge-bar"><i id="liveGaugeDot"></i></div>
+        <div class="gauge-labels"><span>เสียงทุ้ม</span><span>กลาง ๆ</span><span>เสียงสูง/สว่าง</span></div>
+      </div>
+      <p id="liveVerdict" class="verdict">พูดต่อเนื่องสัก 3–4 ประโยค แล้วค่าจะขึ้น</p>
+      <ul class="parts" id="liveParts">
+        <li><span>ระดับเสียง</span><b data-p="pitch">—</b></li>
+        <li><span>เสียงก้อง (ช่องเสียง)</span><b data-p="resonance">—</b></li>
+        <li><span>ท่วงทำนอง</span><b data-p="intonation">—</b></li>
+        <li><span>ความโปร่งเบา</span><b data-p="weight">—</b></li>
+      </ul>
+      <p class="fine">สูตรประมาณการเองจากค่าที่วัดได้ (ระดับเสียง 40% · เสียงก้อง 40% · ท่วงทำนอง 10% · ความโปร่งเบา 10%) ใช้ดูความก้าวหน้า ไม่ใช่ตัวตัดสินว่าเสียงคุณ “ผ่าน” หรือไม่</p>
+    </section>
+
+    <section class="card">
+      <h2>ค่าเสียงตอนนี้</h2>
+      <div class="readouts">
+        <button class="ro" data-info="F0"><small>F0 ระดับเสียง</small><b id="roF0">—</b><em>Hz</em></button>
+        <button class="ro" data-info="F1"><small>F1</small><b id="roF1">—</b><em>Hz</em></button>
+        <button class="ro" data-info="F2"><small>F2</small><b id="roF2">—</b><em>Hz</em></button>
+        <button class="ro" data-info="F3"><small>F3</small><b id="roF3">—</b><em>Hz</em></button>
+      </div>
+      <div class="vol"><span>ระดับเสียงเข้า</span><div class="vol-bar"><i id="volBar"></i></div></div>
+      <div id="infoBox" class="infobox" hidden></div>
+      <h3>ช่วงระดับเสียงเป้าหมาย</h3>
+      <div class="target">
+        <label>จาก <input type="number" id="tgtLo" min="80" max="400" value="170"> ถึง <input type="number" id="tgtHi" min="80" max="450" value="220"> Hz</label>
+        <button id="btnTone" class="btn small">♪ ฟังเสียงเป้าหมาย</button>
+      </div>
+      <p class="hint">10 วินาทีล่าสุดอยู่ในช่วงเป้าหมาย: <b id="inTarget">—</b></p>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="row between">
+      <h2>สเปกโตรแกรมสด</h2>
+      <div class="controls">
+        <select id="specRange" aria-label="ช่วงความถี่">
+          <option value="4000">0–4k</option><option value="5500" selected>0–5.5k</option><option value="8000">0–8k</option>
+        </select>
+        <label class="check">คอนทราสต์ <input type="range" id="specContrast" min="35" max="90" value="60"></label>
+        <label class="check"><input type="checkbox" id="specOverlay" checked> ซ้อนเส้น F0/F1–F3</label>
+        <button id="btnPause" class="btn small">⏸ หยุดภาพ</button>
+      </div>
+    </div>
+    <canvas id="cvSpec" class="cv" height="240"></canvas>
+    <p class="fine">แกนนอน = เวลา · แกนตั้ง = ความถี่ · ยิ่งสว่างยิ่งมีพลังงานมาก  จุดชมพู = F0, ฟ้า = F1–F3</p>
+  </section>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>กราฟระดับเสียง <small>10 วินาทีล่าสุด</small></h2>
+      <canvas id="cvPitch" class="cv" height="200"></canvas>
+      <p class="fine">แถบฟ้า = ช่วงเสียงชายทั่วไป · เทา = กลาง ๆ · ชมพู = ช่วงเสียงหญิงทั่วไป · กรอบขาว = เป้าหมายของคุณ</p>
+    </section>
+    <section class="card">
+      <h2>แผนภูมิสระ (F1 × F2)</h2>
+      <canvas id="cvVowel" class="cv" height="260"></canvas>
+      <p class="fine">สระเดียวกัน ยิ่งจุดอยู่ซ้ายบน เสียงมักยิ่งสว่างและเบา · ค่าเฉลี่ยอ้างอิงจากภาษาอังกฤษ (Peterson &amp; Barney) ใช้เทียบทิศทางเท่านั้น</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>ฝึกสระให้โดนเป้า</h2>
+    <div class="hit">
+      <label>สระที่ฝึก
+        <select id="hitVowel">
+          <option value="i">อี</option><option value="e">เอ</option><option value="a">อา</option><option value="o">โอ</option><option value="u">อู</option>
+        </select>
+      </label>
+      <div class="hit-meter">
+        <div class="hit-track"><span class="m">ชาย</span><span class="f">หญิง</span><i id="hitNeedle"></i><u id="hitMid"></u></div>
+        <p class="hint" id="hitHint">เปิดไมค์ แล้วลากเสียงสระนี้ให้ยาว ๆ</p>
+      </div>
+      <div class="hit-count"><b id="hitCount">0</b><small>ครั้งที่โดนเป้า</small><button id="hitReset" class="btn small">ล้าง</button></div>
+    </div>
+    <p class="fine">รักษาระดับเสียงให้คงที่ แล้วปรับเฉพาะเสียงก้อง ให้เข็มอยู่ฝั่งชมพูเกินครึ่งวินาทีจะนับ 1 ครั้ง</p>
+  </section>
+</main>
+
+<!-- ========================= วิเคราะห์เสียงที่อัด ========================= -->
+<main id="tab-rec" class="panel">
+  <section class="card">
+    <div class="row between wrap">
+      <h2>เสียงที่จะวิเคราะห์</h2>
+      <div class="controls">
+        <label class="btn small" for="fileIn">📁 อัปโหลดไฟล์เสียง</label>
+        <input type="file" id="fileIn" accept="audio/*" hidden>
+        <button id="btnPlayRec" class="btn small" disabled>▶ ฟังทั้งหมด</button>
+        <button id="btnSaveRec" class="btn small" disabled>💾 เก็บลงคลัง</button>
+      </div>
+    </div>
+    <p id="recStatus" class="hint">ยังไม่มีเสียง — กด “เปิดไมค์” แล้ว “เริ่มอัด” พูดสัก 10–30 วินาที (หรืออ่านประโยคจากแท็บ “ประโยคฝึก”)</p>
+    <div id="progressWrap" class="progress" hidden><i id="progressBar"></i></div>
+  </section>
+
+  <div id="results" hidden>
+    <div class="grid two">
+      <section class="card">
+        <h2>AI ฟังแล้วคิดว่า…</h2>
+        <div class="gauge">
+          <div class="gauge-bar ai"><i id="aiDot"></i></div>
+          <div class="gauge-labels"><span>เสียงชาย</span><span>กลาง</span><span>เสียงหญิง</span></div>
+        </div>
+        <p id="aiVerdict" class="verdict">—</p>
+        <button id="btnAi" class="btn small" hidden>ให้ AI ฟัง</button>
+        <p class="fine" id="aiNote">โมเดล Voice Femininity Percentage (Doukhan และคณะ, Interspeech 2023, ลิขสิทธิ์ MIT) ค่าคือสัดส่วนช่วงเสียงที่ฟังเป็นเสียงหญิง ฝึกด้วยเสียงภาษาฝรั่งเศส ใช้กับภาษาไทยได้แต่อาจคลาดเคลื่อน ทำงานในเครื่องคุณ ไม่ส่งเสียงออกไปไหน</p>
+      </section>
+      <section class="card">
+        <h2>ประมาณการจากเสียงอะคูสติก</h2>
+        <div class="gauge">
+          <div class="gauge-bar"><i id="acDot"></i></div>
+          <div class="gauge-labels"><span>เสียงทุ้ม</span><span>กลาง ๆ</span><span>เสียงสูง/สว่าง</span></div>
+        </div>
+        <p id="acVerdict" class="verdict">—</p>
+        <ul class="parts" id="recParts">
+          <li><span>ระดับเสียง</span><b data-p="pitch">—</b></li>
+          <li><span>เสียงก้อง (ช่องเสียง)</span><b data-p="resonance">—</b></li>
+          <li><span>ท่วงทำนอง</span><b data-p="intonation">—</b></li>
+          <li><span>ความโปร่งเบา</span><b data-p="weight">—</b></li>
+        </ul>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>ข้อแนะนำจากรอบนี้</h2>
+      <div id="coach"></div>
+    </section>
+
+    <section class="card">
+      <div class="row between wrap">
+        <h2>สเปกโตรแกรมของเสียงที่อัด</h2>
+        <div class="controls">
+          <label class="check">คอนทราสต์ <input type="range" id="recContrast" min="35" max="90" value="60"></label>
+          <label class="check"><input type="checkbox" id="recOverlay" checked> ซ้อนเส้น</label>
+        </div>
+      </div>
+      <canvas id="cvRec" class="cv" height="280"></canvas>
+      <p class="fine">แถบสีล่าง = ช่วงที่ AI ฟัง (ฟ้า → ขาว → ชมพู) · คลิกที่สเปกโตรแกรมเพื่อฟังช่วงนั้น</p>
+    </section>
+
+    <section class="card">
+      <h2>ตัวเลขสำคัญ</h2>
+      <div class="metrics" id="metrics"></div>
+    </section>
+
+    <div class="grid two">
+      <section class="card">
+        <h2>แผนภูมิสระของรอบนี้</h2>
+        <canvas id="cvVowelRec" class="cv" height="260"></canvas>
+      </section>
+      <section class="card">
+        <h2>แยกเป็นช่วงเสียง</h2>
+        <p class="hint">แต่ละช่องคือช่วงที่ออกเสียงต่อเนื่อง สีบอกว่าเสียงก้องอยู่ใกล้ “ชาย (ฟ้า)” หรือ “หญิง (ชมพู)” เมื่อเทียบกับสระที่ใกล้ที่สุด กดเพื่อฟังซ้ำ</p>
+        <div id="segGrid" class="seggrid"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="row between wrap">
+        <h2>เทียบกับเสียงอ้างอิง</h2>
+        <select id="refSelect"><option value="">— เลือกเสียงจากคลัง —</option></select>
+      </div>
+      <div class="tablewrap"><table id="cmpTable" class="tbl"></table></div>
+    </section>
+  </div>
+</main>
+
+<!-- ========================= ประโยคฝึก ========================= -->
+<main id="tab-text" class="panel">
+  <section class="card">
+    <h2>ประโยคฝึกในชีวิตประจำวัน</h2>
+    <p class="hint">เลือกประโยคสั้น ๆ แล้วอ่านออกเสียงขณะอัด สิ่งที่ทำให้คนได้ยินว่า “นุ่ม สว่าง” มักมาจากเสียงก้องและท่วงทำนอง ไม่ใช่แค่เสียงสูง ภาษาไทยมีวรรณยุกต์ ดังนั้นอย่าทำให้เสียงเรียบจนวรรณยุกต์เพี้ยน แค่เพิ่มความมีชีวิตของจังหวะและลีลาเล็กน้อย</p>
+    <div id="phraseCats" class="cats"></div>
+    <ul id="phraseList" class="phrases"></ul>
+  </section>
+  <section class="card">
+    <h2>วอร์มอัปสั้น ๆ</h2>
+    <ol class="steps">
+      <li>ครางเบา ๆ “ฮึ่มม” ที่ระดับสบาย 30 วินาที ให้รู้สึกสั่นที่หน้าปาก/จมูก</li>
+      <li>ไถเสียงขึ้นลงเหมือนเสียงไซเรนเบา ๆ ด้วย “อู” 5–6 รอบ</li>
+      <li>ลากสระ อี–อา–อู ช้า ๆ ระดับเสียงคงที่ ดูแผนภูมิสระแล้วลองขยับจุดไปทางซ้ายบน</li>
+      <li>อ่านประโยคด้านบนด้วยเสียงสบาย ๆ แล้วอัดเก็บไว้เทียบกับของเมื่อวาน</li>
+    </ol>
+    <p class="fine">ฝึกครั้งละสั้น ๆ พักบ่อย ๆ ดื่มน้ำ ถ้าเจ็บคอ แหบ หรือเสียงหายหลังฝึก ให้หยุดทันที และปรึกษานักแก้ไขการพูด/นักอรรถบำบัด หรือแพทย์หู คอ จมูก เสียงของคุณดีอยู่แล้ว การฝึกเป็นแค่ทางเลือกที่คุณเลือกเอง</p>
+  </section>
+</main>
+
+<!-- ========================= บันทึกของฉัน ========================= -->
+<main id="tab-me" class="panel">
+  <section class="card">
+    <div class="row between wrap">
+      <h2>สมุดบันทึกการฝึก</h2>
+      <div class="controls">
+        <button id="btnCsv" class="btn small">ส่งออก CSV</button>
+        <button id="btnBackup" class="btn small">ส่งออกสำรอง</button>
+        <label class="btn small" for="importIn">นำเข้าสำรอง</label>
+        <input type="file" id="importIn" accept="application/json" hidden>
+        <button id="btnClearDiary" class="btn small danger">ล้างสมุด</button>
+      </div>
+    </div>
+    <p id="diaryCount" class="hint">ยังไม่มีบันทึก</p>
+    <canvas id="cvDiary" class="cv" height="200"></canvas>
+    <p class="fine"><span class="dot blue"></span> ประมาณการอะคูสติก <span class="dot pink"></span> คะแนน AI · ทุกครั้งที่วิเคราะห์เสียงยาวเกิน 3 วินาที ระบบจดอัตโนมัติ เก็บเฉพาะตัวเลข ไว้ในเบราว์เซอร์เครื่องนี้</p>
+    <div class="tablewrap"><table id="diaryTable" class="tbl"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>คลังเสียงของฉัน</h2>
+    <p class="hint">เก็บเฉพาะในเบราว์เซอร์เครื่องนี้ (ลบข้อมูลเว็บไซต์แล้วจะหาย) เลือกเสียงเก่าเป็น “เสียงอ้างอิง” เพื่อดูว่าเราก้าวหน้าแค่ไหน</p>
+    <div class="tablewrap"><table id="libTable" class="tbl"></table></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>ค่าที่ได้เป็นเพียงข้อมูลประกอบการฝึก ไม่ใช่การวินิจฉัยทางการแพทย์หรือการประเมินเสียงโดยผู้เชี่ยวชาญ ไมค์ ห้อง และระยะห่างมีผลมาก เทียบกับตัวเองในเงื่อนไขเดิมจะได้ความหมายที่สุด</p>
+  <p>เทคนิค: ระดับเสียง = YIN · formant = Burg LPC · AI = inaSpeechSegmenter VFP (MIT) ทำงานบนเครื่องคุณผ่าน onnxruntime</p>
+</footer>
+
+<script src="ort/ort.wasm.min.js"></script>
+<script src="dsp.js"></script>
+<script src="ai.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
